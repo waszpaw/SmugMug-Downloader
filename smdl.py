@@ -16,7 +16,9 @@ parser.add_argument(
 parser.add_argument("-o", "--output", default="output/",
 		help="output directory")
 parser.add_argument(
-		"--albums", help='specific album names to download, split by $. Defaults to all. (e.g. --albums "Title 1$Title 2$Title 3")')
+		"-a", "--albums", help='specific album names to download, split by $. Defaults to all. (e.g. --albums "Title 1$Title 2$Title 3")')
+parser.add_argument(
+	    "-m", "--mask", help='specific album mask (start of path) to download. e.g. --mask "/2020/09/Family", please note that "--albums" has priority')
 
 args = parser.parse_args()
 
@@ -35,7 +37,7 @@ else:
 
 if args.albums:
 	specificAlbums = [x.strip() for x in args.albums.split('$')]
-
+	args.mask = ""
 
 # Gets the JSON output from an API call
 def get_json(url):
@@ -43,7 +45,6 @@ def get_json(url):
 	soup = BeautifulSoup(r.text, "html.parser")
 	pres = soup.find_all("pre")
 	return json.loads(pres[-1].text)
-
 
 # Retrieve the list of albums
 print("Downloading album list...", end="")
@@ -56,13 +57,37 @@ try:
 except KeyError:
 	sys.exit("No albums were found for the user %s. The user may not exist or may be password protected." % args.user)
 
+# Removing unneeded directories from the table
+temp = []
+if args.albums:
+	while albums["Response"]["AlbumList"]:
+		album = albums["Response"]["AlbumList"].pop()
+		if album["Name"].strip() in specificAlbums:
+			temp.append(album)
+	while temp:
+		albums["Response"]["AlbumList"].append(temp.pop())
+
+elif args.mask:
+	while albums["Response"]["AlbumList"]:
+		album = albums["Response"]["AlbumList"].pop()
+		if args.mask == album["UrlPath"][0:len(args.mask)]:
+			temp.append(album)
+	while temp:
+		albums["Response"]["AlbumList"].append(temp.pop())
+
+#	directory = output_dir + album["UrlPath"][1:]
+#	if not os.path.exists(directory):
+#		os.makedirs(directory)
+
 # Create output directories
 print("Creating output directories...", end="")
 for album in albums["Response"]["AlbumList"]:
-	if args.albums:
-		if album["Name"].strip() not in specificAlbums:
-			continue
-
+#	if args.albums:
+#		if album["Name"].strip() not in specificAlbums:
+#			continue
+#	elif args.mask:
+#		if args.mask != album["UrlPath"][0:len(args.mask)]:
+#			continue
 	directory = output_dir + album["UrlPath"][1:]
 	if not os.path.exists(directory):
 		os.makedirs(directory)
@@ -76,16 +101,19 @@ bar_format = '{l_bar}{bar:-2}| {n_fmt:>3}/{total_fmt:<3}'
 # Loop through each album
 for album in tqdm(albums["Response"]["AlbumList"], position=0, leave=True, bar_format=bar_format,
 		desc=f"{fg('yellow')}{attr('bold')}{format_label('All Albums')}{attr('reset')}"):
-	if args.albums:
-		if album["Name"].strip() not in specificAlbums:
-			continue
-
+#	if args.albums:
+#		if album["Name"].strip() not in specificAlbums:
+#			continue
+#	elif args.mask:
+#		if args.mask != album["UrlPath"][0:len(args.mask)]:
+#			continue
 	album_path = output_dir + album["UrlPath"][1:]
+
+# Iterate through one album
 	images = get_json(album["Uri"] + "!images")
 
 	# Skip if no images are in the album
 	if "AlbumImage" in images["Response"]:
-
 		# Loop through each page of the album
 		next_images = images
 		while "NextPage" in next_images["Response"]["Pages"]:
