@@ -28,6 +28,9 @@ optional arguments:
                         output directory
   --albums ALBUMS       specific album names to download, split by $. Defaults
                         to all. (e.g. --albums "Title 1$Title 2$Title 3")
+  -m MASK, --mask MASK  specific album mask (start of path) to download,
+                        e.g. --mask "/2020/09/Family", please note that
+                        "--albums" has priority
 ```
 
 
